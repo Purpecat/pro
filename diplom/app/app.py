@@ -37,7 +37,6 @@ def suggest_address():
         response = requests.post(url, json=data, headers=headers, timeout=3)
         result = response.json()
         
-        # Преобразуем в удобный формат
         suggestions = []
         for sugg in result.get('suggestions', []):
             suggestions.append({
@@ -54,9 +53,6 @@ def suggest_address():
 
 @app.route('/geocode', methods=['POST'])
 def geocode_address():
-    """
-    Преобразует адрес в координаты (по кнопке или выбору)
-    """
     data = request.json
     address = data.get('address', '')
     if not address:
@@ -89,6 +85,67 @@ def geocode_address():
         return jsonify({'success': False, 'error': 'Адрес не найден'})
     except Exception as e:
         print(f"Ошибка geocode: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/reverse_geocode', methods=['GET'])
+def reverse_geocode():
+    """Получает короткий адрес по координатам (улица + дом с запятой)"""
+    lat = request.args.get('lat')
+    lng = request.args.get('lng')
+    
+    if not lat or not lng:
+        return jsonify({'success': False, 'error': 'Не указаны координаты'})
+    
+    try:
+        url = "https://nominatim.openstreetmap.org/reverse"
+        params = {
+            'lat': lat,
+            'lon': lng,
+            'format': 'json',
+            'addressdetails': 1,
+            'zoom': 18
+        }
+        headers = {'User-Agent': 'FlaskRouteBuilder/1.0'}
+        
+        response = requests.get(url, params=params, headers=headers, timeout=5)
+        data = response.json()
+        
+        if data and 'address' in data:
+            address_parts = data['address']
+            
+            street = None
+            house_number = None
+            
+            if 'house_number' in address_parts:
+                house_number = address_parts['house_number']
+            
+            street = (address_parts.get('road') or 
+                     address_parts.get('pedestrian') or 
+                     address_parts.get('footway') or 
+                     address_parts.get('street'))
+            
+            if not street:
+                street = (address_parts.get('suburb') or 
+                         address_parts.get('neighbourhood') or 
+                         address_parts.get('city_district'))
+            
+            result = ''
+            if street and house_number:
+                result = f"{street}, {house_number}"
+            elif street:
+                result = street
+            elif house_number:
+                result = f"дом {house_number}"
+            else:
+                result = address_parts.get('city', 'Новосибирск')
+            
+            if result:
+                return jsonify({'success': True, 'address': result})
+        
+        return jsonify({'success': False, 'error': 'Адрес не найден'})
+    except Exception as e:
+        print(f"Ошибка reverse_geocode: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 
