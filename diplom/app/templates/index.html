@@ -37,14 +37,6 @@
             cursor: pointer;
             font-size: 14px;
         }
-        .gps-status {
-            margin-top: 10px;
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            text-align: center;
-            background: #e8f4f8;
-        }
         .btn-primary {
             background-color: #4CAF50;
             color: white;
@@ -207,24 +199,22 @@
         <button class="btn-primary" onclick="buildRoute(event)">Построить маршрут</button>
         <button class="btn-info" onclick="startGPS()">Определить местоположение</button>
         <button class="btn-danger" onclick="clearAll()">Очистить всё</button>
-        
-
-        <div class="gps-status" id="gpsStatus">GPS не активен</div>
 
         <div id="routesDetails" class="routes-details" style="display: none;">
             <b style="font-size: 18px;">Информация о маршрутах</b>
             <div class="route-detail-item" style="border-left: 4px solid #2196F3;">
-                <div class="route-detail-header" style="font-size: 18px;">🔵 Кратчайший</div>
+                <div class="route-detail-header" style="font-size: 18px;">🔵 Оптимальный</div>
                 <div class="route-detail-stats" id="standardStats" style="font-size: 16px;"></div>
-            </div>
-            <div class="route-detail-item" style="border-left: 4px solid #4CAF50;">
-                <div class="route-detail-header" style="font-size: 18px;">🟢 Тихий</div>
-                <div class="route-detail-stats" id="quietStats" style="font-size: 16px;"></div>
             </div>
             <div class="route-detail-item" style="border-left: 4px solid #9c12f3;">
                 <div class="route-detail-header"style="font-size: 18px;">🟣 Красивый</div>
                 <div class="route-detail-stats" id="beautifulStats" style="font-size: 16px;"></div>
             </div>
+            <div class="route-detail-item" style="border-left: 4px solid #4CAF50;">
+                <div class="route-detail-header" style="font-size: 18px;">🟢 Тихий</div>
+                <div class="route-detail-stats" id="quietStats" style="font-size: 16px;"></div>
+            </div>
+            
         </div>
     </div>
 
@@ -248,9 +238,6 @@
         window.endMarker = null;
         window.watchId = null;
         window.gpsMarker = null;
-        window.gpsCircle = null;
-
-        const ACCURACY_THRESHOLD = 150;
 
         window.routeGroups = {
             standard: L.layerGroup(),
@@ -262,11 +249,9 @@
         }
         L.control.layers(
             {},
-            {
-                "Кратчайший маршрут": window.routeGroups.standard,
-                "Тихий маршрут": window.routeGroups.quiet,
-                "Красивый маршрут": window.routeGroups.beautiful
-            },
+            {"Оптимальный маршрут": window.routeGroups.standard,
+                "Красивый маршрут": window.routeGroups.beautiful,
+                "Тихий маршрут": window.routeGroups.quiet},
             { collapsed: false }
         ).addTo(map);
 
@@ -625,7 +610,7 @@
                         color: colors[key] || 'gray',
                         weight: 5,
                         opacity: 0.8
-                    }).bindPopup(routeNames[key]);
+                    }).bindPopup(route.name);
                     window.routeGroups[key].addLayer(polyline);
                 }
             }
@@ -643,23 +628,18 @@
             if (window.startMarker) map.removeLayer(window.startMarker);
             if (window.endMarker) map.removeLayer(window.endMarker);
             if (window.gpsMarker) map.removeLayer(window.gpsMarker);
-            if (window.gpsCircle) map.removeLayer(window.gpsCircle);
             
             window.startMarker = null;
             window.endMarker = null;
             window.gpsMarker = null;
-            window.gpsCircle = null;
-            
-            // Очищаем поля ввода адресов
+
             document.getElementById('startAddress').value = '';
             document.getElementById('endAddress').value = '';
             
-            // Очищаем серверную часть
             fetch('/clear_route', { method: 'POST' })
                 .then(() => fetch('/clear_session', { method: 'POST' }))
                 .then(() => {
                     document.getElementById('routesDetails').style.display = 'none';
-                    stopGPS();
                 });
         }
 
@@ -672,40 +652,36 @@
                 alert("GPS уже активен");
                 return;
             }
-            const statusDiv = document.getElementById('gpsStatus');
-            statusDiv.innerHTML = '⏳ Запуск GPS, ожидание сигнала...';
-            statusDiv.style.background = '#fff3cd';
-            window.watchId = navigator.geolocation.watchPosition(gpsSuccess, gpsError, {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0
-            });
+
+            // Находим кнопку и меняем её состояние
+            const gpsBtn = document.querySelector('.btn-info');
+            const originalText = gpsBtn.innerHTML;
+            gpsBtn.innerHTML = 'Определение...';
+            gpsBtn.disabled = true;
+            gpsBtn.style.opacity = '0.7';
+
+            window.watchId = navigator.geolocation.watchPosition(
+                (position) => gpsSuccess(position, gpsBtn, originalText),
+                (error) => gpsError(error, gpsBtn, originalText),
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }
+            );
         }
 
-        function stopGPS() {
-            if (window.watchId !== null) {
-                navigator.geolocation.clearWatch(window.watchId);
-                window.watchId = null;
-                if (window.gpsMarker) map.removeLayer(window.gpsMarker);
-                if (window.gpsCircle) map.removeLayer(window.gpsCircle);
-                window.gpsMarker = null;
-                window.gpsCircle = null;
-                const statusDiv = document.getElementById('gpsStatus');
-                statusDiv.innerHTML = 'GPS остановлен';
-                statusDiv.style.background = '#e8f4f8';
-            }
-        }
-
-        function gpsSuccess(position) {
+        function gpsSuccess(position, gpsBtn, originalText) {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
-            const timestamp = new Date().toLocaleTimeString();
-            const statusDiv = document.getElementById('gpsStatus');
-            const accuracyText = accuracy <= ACCURACY_THRESHOLD ? `Точность: ${accuracy.toFixed(0)} м` : `Точность: ${accuracy.toFixed(0)} м (нужно ≤150м)`;
-            statusDiv.innerHTML = `GPS активен | ${accuracyText}<br> ${timestamp}`;
-            statusDiv.style.background = accuracy <= ACCURACY_THRESHOLD ? '#d4edda' : '#fff3cd';
-            
+
+            if (gpsBtn) {
+                gpsBtn.innerHTML = originalText;
+                gpsBtn.disabled = false;
+                gpsBtn.style.opacity = '1';
+            }
+
             if (window.gpsMarker) {
                 window.gpsMarker.setLatLng([lat, lng]);
             } else {
@@ -714,25 +690,12 @@
                     iconSize: [16, 16],
                     className: 'gps-marker'
                 });
-                window.gpsMarker = L.marker([lat, lng], {icon: gpsIcon}).addTo(map);
-                window.gpsMarker.bindPopup("<b>Ваше местоположение (GPS)</b>").openPopup();
+                window.gpsMarker = L.marker([lat, lng], { icon: gpsIcon }).addTo(map);
             }
-            
-            if (window.gpsCircle) {
-                window.gpsCircle.setLatLng([lat, lng]);
-                window.gpsCircle.setRadius(accuracy);
-            } else {
-                window.gpsCircle = L.circle([lat, lng], {
-                    radius: accuracy,
-                    color: '#ff4444',
-                    fillColor: '#ff4444',
-                    fillOpacity: 0.1,
-                    weight: 2
-                }).addTo(map);
-            }
+
             map.setView([lat, lng], 16);
-            
-            if (accuracy <= ACCURACY_THRESHOLD) {
+
+            if (accuracy <= 120) {
                 saveAsStart(lat, lng);
                 fetch(`/reverse_geocode?lat=${lat}&lng=${lng}`)
                     .then(response => response.json())
@@ -741,26 +704,48 @@
                             document.getElementById('startAddress').value = data.address;
                         }
                     })
-                    .catch(err => console.error('Ошибка обратного геокодирования:', err));
-                
+                    .catch(err => console.error('Ошибка получения адреса:', err));
+
                 fetch('/save_location', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ latitude: lat, longitude: lng, accuracy: accuracy })
                 }).catch(e => console.error(e));
             }
+            
+            if (window.watchId !== null) {
+                navigator.geolocation.clearWatch(window.watchId);
+                window.watchId = null;
+            }
         }
 
-        function gpsError(error) {
+        function gpsError(error, gpsBtn, originalText) {
             let message = '';
             switch(error.code) {
-                case error.PERMISSION_DENIED: message = 'Доступ запрещён'; break;
-                case error.POSITION_UNAVAILABLE: message = 'Сигнал недоступен'; break;
-                case error.TIMEOUT: message = 'Таймаут'; break;
-                default: message = 'Ошибка';
+                case error.PERMISSION_DENIED:
+                    message = 'Доступ запрещён';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message = 'Сигнал недоступен';
+                    break;
+                case error.TIMEOUT:
+                    message = 'Таймаут';
+                    break;
+                default:
+                    message = 'Ошибка';
             }
-            document.getElementById('gpsStatus').innerHTML = `GPS: ${message}`;
-            document.getElementById('gpsStatus').style.background = '#f8d7da';
+            alert(`GPS: ${message}`);
+
+            if (gpsBtn) {
+                gpsBtn.innerHTML = originalText;
+                gpsBtn.disabled = false;
+                gpsBtn.style.opacity = '1';
+            }
+
+            if (window.watchId !== null) {
+                navigator.geolocation.clearWatch(window.watchId);
+                window.watchId = null;
+            }
         }
         
         fetch('/get_route_coords')
@@ -768,7 +753,6 @@
             .then(data => {
                 if (data.start) {
                     saveAsStart(data.start[0], data.start[1]);
-                    // Можно также подставить адрес в поле
                 }
                 if (data.end) {
                     saveAsEnd(data.end[0], data.end[1]);

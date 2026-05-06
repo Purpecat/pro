@@ -156,20 +156,23 @@ class RouteBuilder:
         
         result = {
             'standard': {
+                'name': 'Оптимальный',
                 'coords': self.get_route_coordinates(standard_route),
                 'distance': standard_distance,
                 'duration': standard_duration,
                 'color': 'blue'
             },
             'quiet': {
+                'name': 'Тихий',
                 'coords': self.get_route_coordinates(quiet_route),
-                'distance': quiet_distance,
+                'distance': int(quiet_distance),
                 'duration': quiet_duration,
                 'color': 'green'
             },
             'beautiful': {
+                'name': 'Красивый',
                 'coords': self.get_route_coordinates(beautiful_route),
-                'distance': beautiful_distance,
+                'distance': int(beautiful_distance),
                 'duration': beautiful_duration,
                 'color': 'red'
             }

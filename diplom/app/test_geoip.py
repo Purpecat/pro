@@ -54,9 +54,6 @@ def suggest_address():
 
 @app.route('/geocode', methods=['POST'])
 def geocode_address():
-    """
-    Преобразует адрес в координаты (по кнопке или выбору)
-    """
     data = request.json
     address = data.get('address', '')
     if not address:
