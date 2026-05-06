@@ -10,12 +10,14 @@ class RouteBuilder:
         self.box_index = self._create_index()
         print(f"Граф загружен. Узлов: {len(self.G.nodes)}")
     
+    
     def _create_index(self):
         idx = rtree.index.Index()
         for node_id, data in self.G.nodes(data=True):
             x, y = data['x'], data['y']
             idx.insert(node_id, (x, y, x, y))
         return idx
+    
     
     def _calc_orient_box(self, center, dx, dy, radius, l, r):
         center_x, center_y = center['x'], center['y']
@@ -31,6 +33,7 @@ class RouteBuilder:
         y = [x[1] for x in corn]
         return (min(x), min(y), max(x), max(y))
     
+    
     def _find_box_nodes(self, center, dx, dy, radius, l, r, route_type):
         quiet_nodes = []
         box = self._calc_orient_box(center, dx, dy, radius, l, r)
@@ -39,6 +42,7 @@ class RouteBuilder:
             if self.G.nodes[node_id].get(route_type):
                 quiet_nodes.append(node_id)
         return quiet_nodes
+    
     
     def _get_need_route(self, route, distance, side, route_type):
         quiet_nodes = []
@@ -64,10 +68,12 @@ class RouteBuilder:
             quiet_nodes.extend(search_nodes)
         return list(set(quiet_nodes))
     
+    
     def _select_side(self, route, distance, route_type):
         right_side = self._get_need_route(route, distance, "right", route_type)
         left_side = self._get_need_route(route, distance, "left", route_type)
         return right_side if len(right_side) > len(left_side) else left_side
+    
     
     def _get_edges_quiet(self, quiet_nodes, route_type):
         G_quiet = self.G.copy()
@@ -87,6 +93,7 @@ class RouteBuilder:
         
         return G_quiet
     
+    
     def _find_need_length(self, G, route):
         dlina = 0
         for node in range(len(route)-1):
@@ -94,6 +101,7 @@ class RouteBuilder:
             edge_data = G.get_edge_data(u, v)
             dlina += float(edge_data[min(edge_data.keys())].get('length', 0.0))
         return dlina
+    
     
     def _select_route(self, node1, node2, standard_route, distance, route_type):
         side_nodes = self._select_side(standard_route, distance, route_type)
@@ -103,12 +111,26 @@ class RouteBuilder:
         
         return special_route, special_distance
     
+    
     def get_route_coordinates(self, route):
         coords = []
         for node in route:
             node_data = self.G.nodes[node]
             coords.append([node_data['y'], node_data['x']])
         return coords
+
+
+    def _calculate_duration(self, distance_meters, route_type):
+        speeds = {
+            'standard': 5,
+            'quiet': 4,
+            'beautiful': 4
+        }
+        speed_kmh = speeds.get(route_type)
+        distance_km = distance_meters / 1000.0
+        min = int((distance_km / speed_kmh) * 60)
+        return min
+    
     
     def build_routes(self, start_point, end_point):
         node1 = ox.distance.nearest_nodes(self.G, start_point[1], start_point[0])
@@ -128,20 +150,27 @@ class RouteBuilder:
         )
         print(f"Красивый маршрут: {beautiful_distance} м")
         
+        standard_duration = self._calculate_duration(standard_distance, 'standard')
+        quiet_duration = self._calculate_duration(quiet_distance, 'quiet')
+        beautiful_duration = self._calculate_duration(beautiful_distance, 'beautiful')
+        
         result = {
             'standard': {
                 'coords': self.get_route_coordinates(standard_route),
                 'distance': standard_distance,
+                'duration': standard_duration,
                 'color': 'blue'
             },
             'quiet': {
                 'coords': self.get_route_coordinates(quiet_route),
                 'distance': quiet_distance,
+                'duration': quiet_duration,
                 'color': 'green'
             },
             'beautiful': {
                 'coords': self.get_route_coordinates(beautiful_route),
                 'distance': beautiful_distance,
+                'duration': beautiful_duration,
                 'color': 'red'
             }
         }

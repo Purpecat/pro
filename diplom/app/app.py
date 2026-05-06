@@ -1,14 +1,96 @@
-from flask import Flask, request, jsonify, session
-import folium
+from flask import Flask, request, jsonify, session, render_template
 from folium import MacroElement
 from jinja2 import Template
 from route_functions import RouteBuilder
-from flask_simple_geoip import GeoIP
+import requests
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'
-
 _first_request = True
+DADATA_API_KEY = "e21592892b6804ed299a4769778bda688d69239b"
+DADATA_SECRET = "7d299f0844fc146b35bb79a5bd57ff5c054e4571"
+
+
+@app.route('/suggest', methods=['GET'])
+def suggest_address():
+    query = request.args.get('query', '')
+    if len(query) < 3:
+        return jsonify({'suggestions': []})
+    
+    url = "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address"
+    headers = {
+        "Authorization": f"Token {DADATA_API_KEY}",
+        "X-Secret": DADATA_SECRET,
+        "Content-Type": "application/json"
+    }
+    data = {
+        "query": query,
+        "count": 5,
+        "locations": [
+            {
+                "city": "Новосибирск"
+            }
+        ]
+    }
+        
+    try:
+        response = requests.post(url, json=data, headers=headers, timeout=3)
+        result = response.json()
+        
+        # Преобразуем в удобный формат
+        suggestions = []
+        for sugg in result.get('suggestions', []):
+            suggestions.append({
+                'address': sugg.get('value', ''),
+                'unrestricted_value': sugg.get('unrestricted_value', ''),
+                'lat': sugg.get('data', {}).get('geo_lat'),
+                'lon': sugg.get('data', {}).get('geo_lon')
+            })
+        return jsonify({'suggestions': suggestions})
+    except Exception as e:
+        print(f"Ошибка suggest: {e}")
+        return jsonify({'suggestions': [], 'error': str(e)})
+
+
+@app.route('/geocode', methods=['POST'])
+def geocode_address():
+    """
+    Преобразует адрес в координаты (по кнопке или выбору)
+    """
+    data = request.json
+    address = data.get('address', '')
+    if not address:
+        return jsonify({'success': False, 'error': 'Адрес не указан'})
+    
+    url = "https://cleaner.dadata.ru/api/v1/clean/address"
+    headers = {
+        "Authorization": f"Token {DADATA_API_KEY}",
+        "X-Secret": DADATA_SECRET,
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = requests.post(url, json=[address], headers=headers, timeout=5)
+        result = response.json()
+        
+        if result and len(result) > 0:
+            item = result[0]
+            lat = item.get('geo_lat')
+            lon = item.get('geo_lon')
+            
+            if lat and lon:
+                return jsonify({
+                    'success': True,
+                    'address': item.get('unrestricted_value', address),
+                    'lat': float(lat),
+                    'lon': float(lon)
+                })
+        
+        return jsonify({'success': False, 'error': 'Адрес не найден'})
+    except Exception as e:
+        print(f"Ошибка geocode: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.before_request
 def clear_on_first_request():
@@ -147,6 +229,17 @@ class LatLngPopup(MacroElement):
         super(LatLngPopup, self).__init__()
         self._name = 'LatLngPopup'
 
+@app.route('/')
+def base():
+    start_coords = route_coords.get('start')
+    end_coords = route_coords.get('end')
+    
+    return render_template('index.html', 
+                         start=start_coords,
+                         end=end_coords,
+                         api_key=app.secret_key)
+
+
 @app.route('/build_route', methods=['POST'])
 def build_route():
     try:
@@ -182,302 +275,6 @@ def build_route():
             'error': str(e)
         }), 500
 
-@app.route("/")
-def base():
-    global route_coords
-    
-    if 'start' in session:
-        route_coords['start'] = session['start']
-    if 'end' in session:
-        route_coords['end'] = session['end']
-    
-    m = folium.Map(location=[55.047929, 82.872188], zoom_start=13)
-    m.add_child(LatLngPopup())
-    
-    info_html = f"""
-    <div style="position: fixed; top: 90px; left: 10px; background: white; padding: 15px; z-index: 1000; width: 200px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-        <div style="margin-bottom: 10px;">
-            <b>Начало:</b><br>
-            {route_coords['start'] if route_coords['start'] else 'не выбрано'}
-        </div>
-        <div style="margin-bottom: 10px;">
-            <b>Конец:</b><br>
-            {route_coords['end'] if route_coords['end'] else 'не выбрано'}
-        </div>
-        
-        <button onclick="window.buildRoute(event)" 
-                style="width: 100%; padding: 8px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; margin-bottom: 10px; cursor: pointer;">
-                Построить маршрут
-        </button>
-        
-        <button onclick="window.clearAll()" 
-                style="width: 100%; padding: 8px; background-color: #f44336; color: white; border: none; border-radius: 4px; margin-bottom: 10px; cursor: pointer;">
-                Очистить всё
-        </button>
-                
-        <hr>
-        <div style="margin-bottom: 5px;"><b>Маршруты:</b></div>
-        <div style="display: flex; align-items: center; margin-bottom: 5px;">
-            <span style="color: blue; font-size: 20px; margin-right: 10px;">━━━</span>
-            <span>Кратчайший</span>
-        </div>
-        <div style="display: flex; align-items: center; margin-bottom: 5px;">
-            <span style="color: green; font-size: 20px; margin-right: 10px;">━━━</span>
-            <span>Тихий</span>
-        </div>
-        <div style="display: flex; align-items: center;">
-            <span style="color: red; font-size: 20px; margin-right: 10px;">━━━</span>
-            <span>Красивый</span>
-        </div>
-    </div>
-
-    <script>
-    // Создаем группы для маршрутов
-    window.routeGroups = {{
-        standard: L.layerGroup(),
-        quiet: L.layerGroup(),
-        beautiful: L.layerGroup()
-    }};
-        
-    
-    // Функция для добавления маршрутов на карту с поддержкой LayerControl
-    window.addRoutesToMap = function(routes) {{
-        console.log("Добавление маршрутов на карту:", routes);
-        
-        // Очищаем все группы
-        for (let key in window.routeGroups) {{
-            window.routeGroups[key].clearLayers();
-        }}
-        
-        // Цвета для разных типов маршрутов
-        const colors = {{
-            'standard': 'blue',
-            'quiet': 'green',
-            'beautiful': 'red'
-        }};
-        
-        // Названия для отображения в LayerControl
-        const names = {{
-            'standard': 'Кратчайший маршрут',
-            'quiet': 'Тихий маршрут',
-            'beautiful': 'Красивый маршрут'
-        }};
-        
-        // Добавляем маршруты в соответствующие группы
-        for (const [key, route] of Object.entries(routes)) {{
-            if (route && route.coords && route.coords.length > 0 && window.routeGroups[key]) {{
-                console.log(`Добавление маршрута ${{key}} с ${{route.coords.length}} точками`);
-                
-                const polyline = L.polyline(route.coords, {{
-                    color: colors[key] || 'blue',
-                    weight: 5,
-                    opacity: 0.8
-                }}).bindPopup(route.distance + ' м');
-                
-                window.routeGroups[key].addLayer(polyline);
-            }}
-        }}
-        
-        // Добавляем группы на карту, если их еще нет
-        if (!window.layerControlAdded) {{
-            // Добавляем группы на карту
-            for (let key in window.routeGroups) {{
-                window.routeGroups[key].addTo(window.currentMap);
-            }}
-            
-            // Создаем LayerControl
-            window.layerControl = L.control.layers(
-                {{}},  // Базовые слои (можно оставить пустым)
-                {{    // Оверлеи
-                    "Кратчайший маршрут": window.routeGroups.standard,
-                    "Тихий маршрут": window.routeGroups.quiet,
-                    "Красивый маршрут": window.routeGroups.beautiful
-                }},
-                {{ collapsed: false }}  // Опции: не сворачивать панель
-            ).addTo(window.currentMap);
-            
-            window.layerControlAdded = true;
-        }}
-        
-        // Центрируем карту на первом маршруте
-        if (routes.standard && routes.standard.coords && routes.standard.coords.length > 0) {{
-            const bounds = L.latLngBounds(routes.standard.coords);
-            window.currentMap.fitBounds(bounds.pad(0.1));
-        }} else if (routes.quiet && routes.quiet.coords && routes.quiet.coords.length > 0) {{
-            const bounds = L.latLngBounds(routes.quiet.coords);
-            window.currentMap.fitBounds(bounds.pad(0.1));
-        }} else if (routes.beautiful && routes.beautiful.coords && routes.beautiful.coords.length > 0) {{
-            const bounds = L.latLngBounds(routes.beautiful.coords);
-            window.currentMap.fitBounds(bounds.pad(0.1));
-        }}
-    }};
-
-    window.buildRoute = function(event) {{            
-        fetch('/get_route_coords')
-            .then(response => response.json())
-            .then(data => {{
-                console.log("Данные координат:", data);
-                
-                if (!data.start || !data.end) {{
-                    alert('Сначала выберите начало и конец маршрута!');
-                    return;
-                }}
-                
-                const btn = event.target;
-                const originalText = btn.innerText;
-                btn.innerText = 'Построение...';
-                btn.disabled = true;
-                                
-                fetch('/build_route', {{
-                    method: 'POST',
-                    headers: {{'Content-Type': 'application/json'}},
-                    body: JSON.stringify({{
-                        start: data.start,
-                        end: data.end
-                    }})
-                }})
-                .then(response => response.json())
-                .then(result => {{
-                    if (!result.success) {{
-                        alert('Ошибка: ' + result.error);
-                    }} else {{
-                        console.log("Маршруты построены:", result.routes);
-                        // Добавляем маршруты на карту
-                        window.addRoutesToMap(result.routes);
-                        alert('Маршруты успешно построены!');
-                    }}
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                }})
-                .catch(error => {{
-                    console.error("Ошибка при запросе:", error);
-                    alert('Ошибка соединения: ' + error);
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                }});
-            }})
-            .catch(error => {{
-                console.error("Ошибка при получении координат:", error);
-                alert('Ошибка получения координат: ' + error);
-            }});
-    }};
-
-    window.clearAll = function() {{
-        console.log("clearAll вызвана");
-        
-        // Очищаем все группы маршрутов
-        for (let key in window.routeGroups) {{
-            window.routeGroups[key].clearLayers();
-        }}
-        
-        // Очищаем маркеры и круги
-        if (window.startMarker) {{
-            window.currentMap.removeLayer(window.startMarker);
-            window.startMarker = null;
-        }}
-        if (window.endMarker) {{
-            window.currentMap.removeLayer(window.endMarker);
-            window.endMarker = null;
-        }}
-        if (window.accuracyCircle) {{
-            window.currentMap.removeLayer(window.accuracyCircle);
-            window.accuracyCircle = null;
-        }}
-        
-        fetch('/clear_route', {{
-            method: 'POST'
-        }})
-        .then(() => {{
-            return fetch('/clear_session', {{
-                method: 'POST'
-            }});
-        }})
-        .then(() => {{
-            console.log("Сессия очищена");
-            // Обновляем информацию в боковой панели
-            location.reload();
-        }})
-        .catch(error => {{
-            console.error("Ошибка при очистке:", error);
-            alert('Ошибка при очистке: ' + error);
-        }});
-    }};
-
-    // Сохраняем ссылку на карту после её загрузки
-    document.addEventListener('DOMContentLoaded', function() {{
-        setTimeout(function() {{
-            // Ищем переменную карты в глобальном объекте window
-            for (let key in window) {{
-                if (key.startsWith('map_') && window[key] && window[key]._leaflet_id) {{
-                    window.currentMap = window[key];
-                    console.log("Карта найдена:", key);
-                    
-                    // Добавляем маркеры, если они есть в сессии
-                    fetch('/get_route_coords')
-                        .then(response => response.json())
-                        .then(data => {{
-                            if (data.start) {{
-                                const markerIcon = L.icon({{
-                                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-                                    iconSize: [25, 41],
-                                    iconAnchor: [12, 41],
-                                    popupAnchor: [1, -34],
-                                    shadowSize: [41, 41]
-                                }});
-                                
-                                window.startMarker = L.marker(data.start, {{icon: markerIcon}})
-                                    .addTo(window.currentMap)
-                                    .bindPopup("<b>Начало маршрута</b>");
-                            }}
-                            if (data.end) {{
-                                const markerIcon = L.icon({{
-                                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-                                    iconSize: [25, 41],
-                                    iconAnchor: [12, 41],
-                                    popupAnchor: [1, -34],
-                                    shadowSize: [41, 41]
-                                }});
-                                
-                                window.endMarker = L.marker(data.end, {{icon: markerIcon}})
-                                    .addTo(window.currentMap)
-                                    .bindPopup("<b>Конец маршрута</b>");
-                            }}
-                        }});
-                    
-                    // Загружаем сохраненные маршруты из сессии
-                    fetch('/get_session_routes')
-                        .then(response => response.json())
-                        .then(data => {{
-                            if (data.routes && Object.keys(data.routes).length > 0) {{
-                                window.addRoutesToMap(data.routes);
-                            }}
-                        }});
-                    
-                    break;
-                }}
-            }}
-            
-            if (!window.currentMap) {{
-                console.warn("Карта не найдена");
-            }}
-        }}, 500);
-    }});
-    
-    console.log("Скрипт загружен, функции определены:", {{
-        getUserLocation: typeof window.getUserLocation,
-        getUserLocationByIP: typeof window.getUserLocationByIP,
-        buildRoute: typeof window.buildRoute,
-        clearAll: typeof window.clearAll,
-        addRoutesToMap: typeof window.addRoutesToMap
-    }});
-    </script>
-    """
-    m.get_root().html.add_child(folium.Element(info_html))
-    return m._repr_html_()
-
-
 @app.route('/save_start', methods=['POST'])
 def save_start():
     global route_coords
@@ -487,7 +284,6 @@ def save_start():
     print(f"Начало маршрута: {route_coords['start']}")
     return jsonify({'status': 'ok'})
 
-
 @app.route('/save_end', methods=['POST'])
 def save_end():
     global route_coords
@@ -496,7 +292,6 @@ def save_end():
     session['end'] = route_coords['end']
     print(f"Конец маршрута: {route_coords['end']}")
     return jsonify({'status': 'ok'})
-
 
 @app.route('/clear_route', methods=['POST'])
 def clear_route():
@@ -509,13 +304,11 @@ def clear_route():
     print("Маршрут очищен")
     return jsonify({'status': 'ok'})
 
-
 @app.route('/get_markers_count')
 def get_markers_count():
     global route_coords
     count = sum(1 for v in route_coords.values() if v is not None)
     return jsonify({'count': count})
-
 
 @app.route('/get_route_coords')
 def get_route_coords():
@@ -525,13 +318,10 @@ def get_route_coords():
         'end': route_coords['end']
     })
 
-
 @app.route('/get_session_routes')
 def get_session_routes():
-    """Возвращает сохраненные маршруты из сессии"""
     routes = session.get('routes', {})
     return jsonify({'routes': routes})
-
 
 @app.route('/clear_session', methods=['POST'])
 def clear_session():
@@ -539,7 +329,6 @@ def clear_session():
     session.pop('start', None)
     session.pop('end', None)
     return jsonify({'status': 'ok'})
-
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000, use_reloader=False)
