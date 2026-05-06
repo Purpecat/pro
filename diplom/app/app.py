@@ -3,6 +3,7 @@ from folium import MacroElement
 from jinja2 import Template
 from route_functions import RouteBuilder
 import requests
+import os
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'
@@ -159,7 +160,11 @@ def clear_on_first_request():
         _first_request = False
         print("Сессия очищена при запуске")
 
-GRAPH_FILE = 'D:\\project\\diplom\\graphs\\novosibirsk_graph.graphml'
+import os
+
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GRAPH_FILE = os.path.join(BASE_DIR, 'graph', 'novosibirsk_graph.graphml')
 route_builder = RouteBuilder(GRAPH_FILE)
 
 route_coords = {
