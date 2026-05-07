@@ -91,7 +91,6 @@ def geocode_address():
 
 @app.route('/reverse_geocode', methods=['GET'])
 def reverse_geocode():
-    """Получает короткий адрес по координатам (улица + дом с запятой)"""
     lat = request.args.get('lat')
     lng = request.args.get('lng')
     
@@ -164,7 +163,7 @@ import os
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GRAPH_FILE = os.path.join(BASE_DIR, 'graph', 'novosibirsk_graph.graphml')
+GRAPH_FILE = os.path.join(BASE_DIR, 'diplom', 'graphs', 'novosibirsk_graph.graphml')
 route_builder = RouteBuilder(GRAPH_FILE)
 
 route_coords = {
