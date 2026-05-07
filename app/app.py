@@ -1,9 +1,12 @@
 from flask import Flask, request, jsonify, session, render_template
 from folium import MacroElement
 from jinja2 import Template
-from route_functions import RouteBuilder
 import requests
 import os
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from route_functions import RouteBuilder
+
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'
