@@ -33,6 +33,7 @@ future==1.0.0
 geocoder==1.38.1
 geopandas==1.1.1
 greenlet==3.3.2
+gunicorn==21.2.0
 h11==0.16.0
 hf-xet==1.4.2
 httpcore==1.0.9
