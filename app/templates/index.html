@@ -51,7 +51,7 @@
         .btn-danger:hover {
             background-color: #da190b;
         }
-         .btn-info {
+        .btn-info {
             background-color: #0087f5;
             color: white;
         }
@@ -165,20 +165,174 @@
             transition: transform 0.3s ease, opacity 0.3s ease;
         }
 
-        /* Скрытое состояние */
         .controls.hidden {
             transform: translateX(-120%);
             opacity: 0;
             pointer-events: none;
         }
-
-        /* Кнопка при скрытой панели */
         .toggle-panel.panel-hidden {
             left: 20px;
+        }
+
+        .help-button {
+            position: fixed;
+            top: 100px;
+            right: 15px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            z-index: 1001;
+            font-size: 24px;
+            background: #0087f5;
+            color: white;
+        }
+        .help-button:hover {
+            background: #006dc7;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(2px);
+        }
+        .modal-content {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 0;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal-header {
+            padding: 16px 20px;
+            background: #2196F3;
+            color: white;
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        .modal-body {
+            padding: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .modal-body p {
+            margin: 0 0 12px 0;
+            line-height: 1.5;
+        }
+        .route-type {
+            margin-bottom: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #f5f5f5;
+        }
+        .route-type h4 {
+            margin: 0 0 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .route-type p {
+            margin: 0;
+            font-size: 14px;
+            color: #555;
+        }
+        .route-icon {
+            font-size: 20px;
+        }
+        .instruction-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding: 8px;
+            background: #e3f2fd;
+            border-radius: 8px;
+        }
+        .step-number {
+            width: 28px;
+            height: 28px;
+            background: #2196F3;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .step-text {
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
+    <button id="helpButton" class="help-button">?</button>
+
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Информация о маршрутах</h3>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="route-type">
+                    <h4><span class="route-icon">🔵</span> Оптимальный маршрут</h4>
+                    <p>Самый быстрый путь от точки одной точки до другой. Подходит если нужно добраться максимально быстро.</p>
+                </div>
+                <div class="route-type">
+                    <h4><span class="route-icon">🟣</span> Красивый маршрут</h4>
+                    <p>Проходит по наиболее живописным местам и главным достопримечательностям. Рекомендуется для туристических прогулок и знакомства с городом.</p>
+                </div>
+                <div class="route-type">
+                    <h4><span class="route-icon">🟢</span> Тихий маршрут</h4>
+                    <p>Пролегает по тихим улицам, паркам, дворовым территориям и менее загруженным дорогам. Идеален, если вы хотите избежать шумных магистралей.</p>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">Выберите точку <b>начала</b> маршрута на карте</div>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">Выберите точку <b>конца</b> маршрута на карте</div>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">Нажмите <b>«Построить маршрут»</b></div>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">4</div>
+                    <div class="step-text">Выберите нужный маршрут через панель справа</div>
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="map"></div>
     <button id="togglePanelBtn" class="toggle-panel">◀</button>
     <div class="controls" style='background-color:#e6e6e6'>
@@ -225,7 +379,21 @@
             minLng: 82.5,
             maxLng: 83.1
         };
-        
+
+        let startTimeout, endTimeout;
+        let isPanelVisible = true;
+
+        const startInput = document.getElementById('startAddress');
+        const startSuggestions = document.getElementById('startSuggestions');
+        const endInput = document.getElementById('endAddress');
+        const endSuggestions = document.getElementById('endSuggestions');
+        const toggleBtn = document.getElementById('togglePanelBtn');
+        const panel = document.querySelector('.controls');
+        const helpButton = document.getElementById('helpButton');
+        const helpModal = document.getElementById('helpModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+                
         const map = L.map('map', {zoomControl: false}).setView([55.047929, 82.872188], 13);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -254,93 +422,7 @@
                 "Тихий маршрут": window.routeGroups.quiet},
             { collapsed: false }
         ).addTo(map);
-
-
-        function saveAsStart(lat, lng, address = null) {
-            fetch('/save_start', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({lat: parseFloat(lat), lng: parseFloat(lng)})
-            })
-            .then(response => response.json())
-            .then(() => {
-                const markerIcon = L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34],
-                    shadowSize: [41, 41]
-                });
-                if (window.startMarker) map.removeLayer(window.startMarker);
-                window.startMarker = L.marker([parseFloat(lat), parseFloat(lng)], {icon: markerIcon})
-                    .addTo(map)
-                    .bindPopup("<b>Начало маршрута</b>");
-                map.closePopup();
-                
-                if (address) {
-                    document.getElementById('startAddress').value = address;
-                } else {
-                    fetch(`/reverse_geocode?lat=${lat}&lng=${lng}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success && data.address) {
-                                document.getElementById('startAddress').value = data.address;
-                            }
-                        })
-                        .catch(err => console.error('Ошибка получения адреса:', err));
-                }
-            });
-        }
-
-        function saveAsEnd(lat, lng, address = null) {
-            fetch('/save_end', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({lat: parseFloat(lat), lng: parseFloat(lng)})
-            })
-            .then(response => response.json())
-            .then(() => {
-                const markerIcon = L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34],
-                    shadowSize: [41, 41]
-                });
-                if (window.endMarker) map.removeLayer(window.endMarker);
-                window.endMarker = L.marker([parseFloat(lat), parseFloat(lng)], {icon: markerIcon})
-                    .addTo(map)
-                    .bindPopup("<b>Конец маршрута</b>");
-                map.closePopup();
-                
-                if (address) {
-                    document.getElementById('endAddress').value = address;
-                } else {
-                    fetch(`/reverse_geocode?lat=${lat}&lng=${lng}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success && data.address) {
-                                document.getElementById('endAddress').value = data.address;
-                            }
-                        })
-                        .catch(err => console.error('Ошибка получения адреса:', err));
-                }
-            });
-        }
-
         
-        let startTimeout, endTimeout;
-
-        const startInput = document.getElementById('startAddress');
-        const startSuggestions = document.getElementById('startSuggestions');
-        const endInput = document.getElementById('endAddress');
-        const endSuggestions = document.getElementById('endSuggestions');
-        const toggleBtn = document.getElementById('togglePanelBtn');
-        const panel = document.querySelector('.controls');
-
-        let isPanelVisible = true;
 
         toggleBtn.addEventListener('click', () => {
             if (isPanelVisible) {
@@ -355,13 +437,13 @@
                 isPanelVisible = true;
             }
         });
-        // Функция показа подсказок
+
+
         async function showSuggestions(input, suggestionsDiv, query) {
             if (query.length < 3) {
                 suggestionsDiv.style.display = 'none';
                 return;
             }
-            
             try {
                 const response = await fetch(`/suggest?query=${encodeURIComponent(query)}`);
                 const data = await response.json();
@@ -381,8 +463,7 @@
                                 } else {
                                     saveAsEnd(sugg.lat, sugg.lon);
                                 }
-                                // Центрируем карту
-                                map.setView([parseFloat(sugg.lat), parseFloat(sugg.lon)], 16);
+                                map.setView([parseFloat(sugg.lat), parseFloat(sugg.lon)], 15);
                             }
                         };
                         suggestionsDiv.appendChild(item);
@@ -409,7 +490,6 @@
             endTimeout = setTimeout(() => showSuggestions(endInput, endSuggestions, query), 500);
         });
 
-        // Закрываем подсказки при клике вне
         document.addEventListener('click', (e) => {
             if (!startInput.contains(e.target) && !startSuggestions.contains(e.target)) {
                 startSuggestions.style.display = 'none';
@@ -452,7 +532,7 @@
                     const data = await response.json();
                     if (data.success) {
                         saveAsEnd(data.lat, data.lon, data.address);
-                        map.setView([data.lat, data.lon], 16);
+                        map.setView([data.lat, data.lon], 15);
                     } else {
                         alert('Адрес не найден: ' + (data.error || ''));
                     }
@@ -461,12 +541,6 @@
             }
         });
 
-        function isInsideNovosibirsk(lat, lng) {
-            return (lat >= NOVOSIBIRSK_BOUNDS.minLat && 
-                    lat <= NOVOSIBIRSK_BOUNDS.maxLat && 
-                    lng >= NOVOSIBIRSK_BOUNDS.minLng && 
-                    lng <= NOVOSIBIRSK_BOUNDS.maxLng);
-        }
 
         map.on('click', async function(e) {
             const lat = e.latlng.lat.toFixed(6);
@@ -535,6 +609,91 @@
                         .openOn(map);
                 });
         });
+
+
+        function saveAsStart(lat, lng, address = null) {
+            fetch('/save_start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({lat: parseFloat(lat), lng: parseFloat(lng)})
+            })
+            .then(response => response.json())
+            .then(() => {
+                const markerIcon = L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                });
+                if (window.startMarker) map.removeLayer(window.startMarker);
+                window.startMarker = L.marker([parseFloat(lat), parseFloat(lng)], {icon: markerIcon})
+                    .addTo(map)
+                    .bindPopup("<b>Начало маршрута</b>");
+                map.closePopup();
+                
+                if (address) {
+                    document.getElementById('startAddress').value = address;
+                } else {
+                    fetch(`/reverse_geocode?lat=${lat}&lng=${lng}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.address) {
+                                document.getElementById('startAddress').value = data.address;
+                            }
+                        })
+                        .catch(err => console.error('Ошибка получения адреса:', err));
+                }
+            });
+        }
+
+
+        function saveAsEnd(lat, lng, address = null) {
+            fetch('/save_end', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({lat: parseFloat(lat), lng: parseFloat(lng)})
+            })
+            .then(response => response.json())
+            .then(() => {
+                const markerIcon = L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                });
+                if (window.endMarker) map.removeLayer(window.endMarker);
+                window.endMarker = L.marker([parseFloat(lat), parseFloat(lng)], {icon: markerIcon})
+                    .addTo(map)
+                    .bindPopup("<b>Конец маршрута</b>");
+                map.closePopup();
+                
+                if (address) {
+                    document.getElementById('endAddress').value = address;
+                } else {
+                    fetch(`/reverse_geocode?lat=${lat}&lng=${lng}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.address) {
+                                document.getElementById('endAddress').value = data.address;
+                            }
+                        })
+                        .catch(err => console.error('Ошибка получения адреса:', err));
+                }
+            });
+        }
+ 
+
+        function isInsideNovosibirsk(lat, lng) {
+            return (lat >= NOVOSIBIRSK_BOUNDS.minLat && 
+                    lat <= NOVOSIBIRSK_BOUNDS.maxLat && 
+                    lng >= NOVOSIBIRSK_BOUNDS.minLng && 
+                    lng <= NOVOSIBIRSK_BOUNDS.maxLng);
+        }
+
         
         function updateRoutesDetails(routes) {
             const detailsDiv = document.getElementById('routesDetails');
@@ -621,7 +780,6 @@
         }
         
         function clearAll() {
-            // Очищаем маршруты
             for (let key in window.routeGroups) window.routeGroups[key].clearLayers();
             
             // Очищаем маркеры
@@ -747,7 +905,27 @@
                 window.watchId = null;
             }
         }
-        
+
+
+        helpButton.addEventListener('click', () => {
+            helpModal.style.display = 'block';
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            helpModal.style.display = 'none';
+        });
+
+        window.addEventListener('click', (event) => {
+            if (event.target === helpModal) {
+                helpModal.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && helpModal.style.display === 'block') {
+                helpModal.style.display = 'none';
+            }
+        });
         fetch('/get_route_coords')
             .then(response => response.json())
             .then(data => {
