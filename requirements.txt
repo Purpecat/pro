@@ -5,3 +5,4 @@ folium==0.20.0
 osmnx==2.0.7
 networkx==3.6.1
 rtree==1.4.1
+scikit-learn
