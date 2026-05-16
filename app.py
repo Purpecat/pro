@@ -8,7 +8,7 @@ app.secret_key = 'your-secret-key-here'
 DADATA_API_KEY = "e21592892b6804ed299a4769778bda688d69239b"
 DADATA_SECRET = "7d299f0844fc146b35bb79a5bd57ff5c054e4571"
 
-GRAPH_FILE = os.path.join('diplom', 'graphs', 'novosibirsk_graph.graphml')
+GRAPH_FILE = os.path.join('diplom', 'graphs', 'novosibirsk_graph.graphml_center')
 route_builder = RouteBuilder(GRAPH_FILE)
 route_coords = {
     'start': None,
