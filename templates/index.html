@@ -99,7 +99,6 @@
             background-color: #f0f0f0;
         }
         
-        /* Блок информации о маршрутах */
         .routes-details {
             margin-top: 15px;
             border-top: 1px solid #ddd;
@@ -125,11 +124,10 @@
             border-top: 1px solid #eee;
         }
 
-        /* Кнопка скрытия панели */
         .toggle-panel {
             position: fixed;
             top: 20px;
-            left: 370px;  /* Сдвигаем вместе с панелью */
+            left: 370px;
             background: white;
             border: none;
             border-radius: 8px;
@@ -149,7 +147,6 @@
             background: #f0f0f0;
         }
 
-        /* Панель с анимацией */
         .controls {
             position: fixed;
             top: 20px;
@@ -289,6 +286,98 @@
         }
         .step-text {
             font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                top: auto;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                max-height: 45vh;
+                border-radius: 16px 16px 0 0;
+                padding: 12px;
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                overflow-y: auto;
+                z-index: 1000;
+                box-shadow: 0 -2px 20px rgba(0,0,0,0.15);
+            }
+            .toggle-panel {
+                top: auto;
+                bottom: 10px;
+                left: auto;
+                right: 20px;
+                width: 44px;
+                height: 44px;
+                font-size: 20px;
+                border-radius: 50%;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                background: #0087f5;
+                color: white;
+            }
+            
+            .toggle-panel:hover {
+                background: #006dc7;
+            }
+            
+            .toggle-panel.panel-hidden {
+                left: auto;
+                right: 20px;
+                bottom: 20px;
+                top: auto;
+            }
+            .controls.hidden + .toggle-panel {
+                bottom: 20px;
+                top: auto;
+                right: 20px;
+            }
+            .address-label {
+                font-size: 16px !important;
+            }
+            .address-input {
+                font-size: 16px;
+                padding: 12px;
+            }
+            .controls button {
+                padding: 12px;
+                font-size: 16px;
+                margin-bottom: 10px;
+                border-radius: 12px;
+            }
+            .route-detail-header {
+                font-size: 16px !important;
+            }
+            .route-detail-stats {
+                font-size: 14px !important;
+            }
+            .help-button {
+                top: auto;
+                bottom: 100px;
+                right: 20px;
+                width: 44px;
+                height: 44px;
+                font-size: 20px;
+                background: #ff9800;
+                z-index: 1002;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            }
+            .leaflet-control-layers {
+                bottom: 80px !important;
+                top: auto !important;
+                right: 10px !important;
+            }
+            .modal-content {
+                width: 95%;
+                max-width: none;
+                margin: 10px;
+            }
+            .modal-body {
+                max-height: 70vh;
+            }
+            .routes-details b {
+                font-size: 16px !important;
+            }
         }
     </style>
 </head>
