@@ -289,31 +289,57 @@
         }
 
         @media (max-width: 768px) {
+            /* Панель управления - компактная, внизу */
             .controls {
                 top: auto;
                 bottom: 0;
                 left: 0;
                 width: 100%;
-                max-height: 40vh;
-                border-radius: 16px 16px 0 0;
+                max-height: 35vh;
+                border-radius: 20px 20px 0 0;
                 padding: 12px;
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(10px);
+                background: rgba(255, 255, 255, 0.96);
+                backdrop-filter: blur(12px);
                 overflow-y: auto;
+                overflow-x: hidden;
                 z-index: 1000;
+                box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+                box-sizing: border-box;
             }
+            
+            /* Скрываем лишние элементы для компактности */
+            .routes-details {
+                margin-top: 8px;
+                padding-top: 6px;
+            }
+            
+            .route-detail-item {
+                margin-bottom: 6px;
+                padding: 6px;
+            }
+            
+            .route-detail-header {
+                font-size: 12px !important;
+            }
+            
+            .route-detail-stats {
+                font-size: 11px !important;
+            }
+            
+            /* Кнопка скрытия панели - плавающая внизу */
             .toggle-panel {
                 top: auto;
                 bottom: 10px;
                 left: auto;
                 right: 20px;
-                width: 44px;
-                height: 44px;
-                font-size: 20px;
+                width: 48px;
+                height: 48px;
+                font-size: 22px;
                 border-radius: 50%;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                box-shadow: 0 2px 12px rgba(0,0,0,0.3);
                 background: #0087f5;
                 color: white;
+                z-index: 1002;
             }
             
             .toggle-panel:hover {
@@ -326,58 +352,108 @@
                 bottom: 20px;
                 top: auto;
             }
-            .controls.hidden + .toggle-panel {
-                bottom: 20px;
-                top: auto;
-                right: 20px;
-            }
+            
+            /* Поля ввода */
             .address-label {
-                font-size: 14px !important;
+                font-size: 13px !important;
             }
+            
             .address-input {
                 font-size: 14px;
-                padding: 12px;
+                padding: 10px;
             }
+            
             .controls button {
+                display: block;
+                width: 100%;
                 padding: 12px;
-                font-size: 14px;
                 margin-bottom: 10px;
+                font-size: 14px;
                 border-radius: 12px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
-            .route-detail-header {
-                font-size: 16px !important;
-            }
-            .route-detail-stats {
-                font-size: 14px !important;
-            }
+            
+            /* Кнопка помощи */
             .help-button {
                 top: 10px;
-                bottom: 100px;
                 right: 10px;
-                width: 44px;
-                height: 44px;
+                width: 40px;
+                height: 40px;
                 font-size: 18px;
                 background: #ff9800;
                 z-index: 1002;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             }
+            
+            /* Панель слоёв Leaflet */
             .leaflet-control-layers {
-                bottom: 80px !important;
+                bottom: 70px !important;
                 top: auto !important;
                 right: 10px !important;
+                background: rgba(255,255,255,0.95);
+                border-radius: 12px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             }
+            
+            /* Зум контрол */
+            .leaflet-control-zoom {
+                bottom: 70px !important;
+                top: auto !important;
+                left: 10px !important;
+            }
+            
+            /* Модальное окно */
             .modal-content {
-                width: 95%;
+                width: 92%;
                 max-width: none;
-                margin: 10px;
+                margin: 0;
             }
+            
             .modal-body {
-                max-height: 70vh;
+                max-height: 65vh;
+                padding: 16px;
             }
+            
+            /* Информация о маршрутах - заголовок */
             .routes-details b {
+                font-size: 13px !important;
+            }
+            
+            /* Адресные секции */
+            .address-section {
+                margin-top: 6px;
+                margin-bottom: 6px;
+            }
+            
+            .separator {
+                margin: 8px 0;
+            }
+            
+            /* Убираем лишние отступы */
+            .controls {
+                padding: 10px;
+            }
+            #map {
+                height: 100vh !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+            }
+            .leaflet-popup-content {
+                min-width: 180px !important;
+                max-width: 260px !important;
+            }
+            
+            .leaflet-popup-content button {
                 font-size: 14px !important;
+                padding: 10px !important;
             }
         }
+        
     </style>
 </head>
 <body>
@@ -456,7 +532,6 @@
                 <div class="route-detail-header" style="font-size: 18px;">🟢 Тихий</div>
                 <div class="route-detail-stats" id="quietStats" style="font-size: 16px;"></div>
             </div>
-            
         </div>
     </div>
 
@@ -503,13 +578,22 @@
         for (let key in window.routeGroups) {
             window.routeGroups[key].addTo(map);
         }
-        L.control.layers(
+        const layerControl = L.control.layers(
             {},
-            {"Оптимальный маршрут": window.routeGroups.standard,
-                "Красивый маршрут": window.routeGroups.beautiful,
-                "Тихий маршрут": window.routeGroups.quiet},
-            { collapsed: false }
-        ).addTo(map);
+            {
+                "🔵 Оптимальный": window.routeGroups.standard,
+                "🟣 Красивый": window.routeGroups.beautiful,
+                "🟢 Тихий": window.routeGroups.quiet
+            },
+            { collapsed: window.innerWidth <= 768 }
+        );
+
+        if (window.innerWidth <= 768) {
+            layerControl.setPosition('bottomleft');
+        } else {
+            layerControl.setPosition('topright');
+        }
+        layerControl.addTo(map);
         
 
         toggleBtn.addEventListener('click', () => {
@@ -899,7 +983,6 @@
                 return;
             }
 
-            // Находим кнопку и меняем её состояние
             const gpsBtn = document.querySelector('.btn-info');
             const originalText = gpsBtn.innerHTML;
             gpsBtn.innerHTML = 'Определение...';
@@ -942,7 +1025,6 @@
             map.setView([lat, lng], 16);
 
             if (accuracy <= 120) {
-                saveAsStart(lat, lng);
                 fetch(`/reverse_geocode?lat=${lat}&lng=${lng}`)
                     .then(response => response.json())
                     .then(data => {
